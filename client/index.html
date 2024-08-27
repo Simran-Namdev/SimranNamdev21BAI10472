@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>5x5 Chess</title>
+    <style>
+        #game-board td {
+            width: 60px;
+            height: 60px;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid black;
+            cursor: pointer;
+        }
+        .valid {
+            background-color: yellow;
+
+        }
+        body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+#game-board {
+    margin: 40px auto;
+    border-collapse: collapse;
+}
+
+#game-board td {
+    width: 60px;
+    height: 60px;
+    text-align: center;
+    vertical-align: middle;
+    border: 1px solid #666;
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#game-board td:hover {
+    background-color: #ccc;
+}
+
+.valid {
+    background-color: #ffff00; /* yellow */
+}
+
+#move-options {
+    margin: 20px auto;
+}
+
+#move-options button {
+    width: 100px;
+    height: 30px;
+    margin: 5px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50; /* green */
+    color: #fff;
+    cursor: pointer;
+}
+
+#move-options button:hover {
+    background-color: #3e8e41;
+}
+
+#move-options button.valid {
+    background-color: #ffff00; /* yellow */
+}
+
+#current-turn {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 20px auto;
+}
+    </style>
+</head>
+<body>
+    <table id="game-board">
+        <tbody>
+            <tr><td id="0-0"></td><td id="0-1"></td><td id="0-2"></td><td id="0-3"></td><td id="0-4"></td></tr>
+            <tr><td id="1-0"></td><td id="1-1"></td><td id="1-2"></td><td id="1-3"></td><td id="1-4"></td></tr>
+            <tr><td id="2-0"></td><td id="2-1"></td><td id="2-2"></td><td id="2-3"></td><td id="2-4"></td></tr>
+            <tr><td id="3-0"></td><td id="3-1"></td><td id="3-2"></td><td id="3-3"></td><td id="3-4"></td></tr>
+            <tr><td id="4-0"></td><td id="4-1"></td><td id="4-2"></td><td id="4-3"></td><td id="4-4"></td></tr>
+        </tbody>
+    </table>
+    <div id="move-options">
+        <button id="move-up">Up</button>
+        <button id="move-down">Down</button>
+        <button id="move-left">Left</button>
+        <button id="move-right">Right</button>
+        <button id="move-fl">Forward-Left</button>
+        <button id="move-fr">Forward-Right</button>
+        <button id="move-bl">Backward-Left</button>
+        <button id="move-br">Backward-Right</button>
+    </div>
+    <div id="current-turn"></div>
+    <script>
+        const socket = new WebSocket('ws://localhost:8765');
+        let currentPieceId = null;
+
+        socket.onmessage = event => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'board_state') {
+                updateBoard(data.board);
+                document.getElementById('current-turn').textContent = `Player ${data.current_player}'s turn`;
+            } else if (data.type === 'valid_moves') {
+                highlightValidMoves(data.valid_moves);
+                currentPieceId = data.selected_piece;
+            } else if (data.type === 'win') {
+                alert(data.message);
+                socket.close();
+            }
+        };
+
+        function updateBoard(board) {
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    const cell = document.getElementById(`${i}-${j}`);
+                    cell.textContent = board[i][j];
+                    cell.style.backgroundColor = ''; // Clear previous background
+                }
+            }
+        }
+
+        function highlightValidMoves(moves) {
+            document.querySelectorAll('#move-options button').forEach(button => {
+                if (moves.includes(button.id.replace('move-', ''))) {
+                    button.classList.add('valid');
+                } else {
+                    button.classList.remove('valid');
+                }
+            });
+        }
+
+        document.querySelectorAll('#game-board td').forEach(cell => {
+            cell.addEventListener('click', event => {
+                const [y, x] = event.target.id.split('-').map(Number);
+                socket.send(`select ${x} ${y}`);
+            });
+        });
+
+        document.querySelectorAll('#move-options button').forEach(button => {
+            button.addEventListener('click', () => {
+                if (currentPieceId !== null) {
+                    const direction = button.id.replace('move-', '');
+                    socket.send(`move ${direction}`);
+                } else {
+                    alert('Select a piece first.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
